@@ -60,7 +60,26 @@ def read_raw(data,name):
   try: sep=csv.Sniffer().sniff(raw[:10000],delimiters="\t;,|").delimiter
   except csv.Error: sep=";"
   return pd.read_csv(io.StringIO(raw),sep=sep,header=None,dtype=object,keep_default_na=False)
- return pd.read_excel(BytesIO(data),engine="xlrd" if data[:8]==b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" else "openpyxl",header=None,dtype=object)
+ errors=[]
+ extension=name.casefold().rsplit(".",1)[-1]
+ preferred=(['xlrd','openpyxl'] if extension == "xls" or data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" else ['openpyxl','xlrd'])
+ for engine in preferred:
+  try:
+   return pd.read_excel(BytesIO(data),engine=engine,header=None,dtype=object)
+  except Exception as exc:
+   errors.append(f"{engine}: {exc}")
+ # Alguns arquivos são CSV/TXT exportados com extensão .xls/.xlsx.
+ for enc in ("utf-8-sig","utf-8","cp1252","latin1"):
+  try:
+   raw=data.decode(enc)
+   try: sep=csv.Sniffer().sniff(raw[:10000],delimiters="\t;,|").delimiter
+   except csv.Error: sep=";"
+   parsed=pd.read_csv(io.StringIO(raw),sep=sep,header=None,dtype=object,keep_default_na=False)
+   if parsed.shape[1] > 1:
+    return parsed
+  except Exception as exc:
+   errors.append(f"texto/{enc}: {exc}")
+ raise ValueError("Formato de planilha não reconhecido. Tente salvar novamente como XLSX ou CSV. " + " | ".join(errors[:2]))
 
 def parse(raw):
  raw=raw.dropna(how="all").reset_index(drop=True)

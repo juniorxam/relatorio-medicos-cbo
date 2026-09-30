@@ -40,3 +40,12 @@ def test_report_order_and_excel_pdf_exports():
     assert "Medicos" in workbook.sheetnames
     pdf = app.pdf(app.summary_sector(df), detail, app.summary_specialty(df))
     assert pdf.startswith(b"%PDF")
+
+
+def test_read_raw_falls_back_to_text_when_excel_extension_is_misleading():
+    content = b"CARGO;SETOR;NUMFUNC;NUMVINC\nMEDICO;Cardio;1;1\n"
+
+    raw = app.read_raw(content, "planilha.xlsx")
+
+    assert raw.shape == (2, 4)
+    assert raw.iloc[1, 0] == "MEDICO"

@@ -26,3 +26,5 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+O leitor aceita CSV, XLS, XLSX e XLSM. Se um arquivo tabular tiver sido exportado com extensão Excel incorreta, o sistema tenta automaticamente o formato alternativo e, em último caso, lê como texto delimitado.
