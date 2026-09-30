@@ -29,6 +29,9 @@ def test_summaries_include_specialties_by_sector():
     assert sector.loc[sector.SETOR == "Cardio", "MEDICOS"].iloc[0] == 2
     assert "Cardiologia" in sector.loc[sector.SETOR == "Cardio", "ESPECIALIDADES"].iloc[0]
     assert len(specialty) == 2
+    reference = app.reference_summary(df)
+    assert reference.iloc[0]["TIPO_LINHA"] == "SETOR"
+    assert set(reference["CONTRATO_TEMPORARIO"]) == {0}
 
 
 def test_report_order_and_excel_pdf_exports():
@@ -38,7 +41,7 @@ def test_report_order_and_excel_pdf_exports():
     assert detail.SETOR.tolist() == ["Cardio"]
     workbook = load_workbook(io.BytesIO(app.excel({"Medicos": detail})))
     assert "Medicos" in workbook.sheetnames
-    pdf = app.pdf(app.summary_sector(df), detail, app.summary_specialty(df))
+    pdf = app.pdf(app.reference_summary(df))
     assert pdf.startswith(b"%PDF")
 
 

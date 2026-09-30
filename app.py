@@ -106,9 +106,28 @@ def clean(df):
   df[c]=df[c].map(lambda v: re.sub(r"\D","",text(v)).lstrip("0") or "0" if re.sub(r"\D","",text(v)) else "")
  for c in REQUIRED:
   if c not in df:df[c]=""
+ if "VINCULO" not in df:df["VINCULO"]=df.get("TIPO_VINCULO","")
  df["CARGO_NORM"]=df["CARGO"].map(norm)
  df["SETOR"]=df["SETOR"].map(text)
  return df[df["CARGO_NORM"].isin({"MEDICO","MEDICO RQE","MEDICO CLINICO"})].reset_index(drop=True)
+
+def vinculo_categoria(value):
+ n=norm(value)
+ if any(term in n for term in ("REQUISITADO","REQUISITADA","CEDIDO","CEDIDA")):return "REQUISITADO"
+ if any(term in n for term in ("CONTRATO","TEMPORARIO","TEMPORARIA")):return "CONTRATO TEMPORARIO"
+ if any(term in n for term in ("CONCURSADO","CONCURSADA","EFETIVO","EFETIVA","ESTATUTARIO")):return "EFETIVO"
+ return "NAO CLASSIFICADO"
+
+def reference_summary(df):
+ columns=["TIPO_LINHA","SETOR","ESPECIALIDADE","EFETIVOS","CONTRATO_TEMPORARIO","REQUISITADO","TOTAL_GERAL"]
+ if df.empty:return pd.DataFrame(columns=columns)
+ work=df.copy();work["CATEGORIA_VINCULO"]=work["VINCULO"].map(vinculo_categoria);work["ESPECIALIDADE"]=work["OCUPACAO"].replace("","NÃO POSSUI/NÃO CADASTRADA")
+ rows=[]
+ for setor,sector_df in work.groupby("SETOR",sort=True,dropna=False):
+  counts=sector_df["CATEGORIA_VINCULO"].value_counts(); rows.append({"TIPO_LINHA":"SETOR","SETOR":setor,"ESPECIALIDADE":setor,"EFETIVOS":int(counts.get("EFETIVO",0)),"CONTRATO_TEMPORARIO":int(counts.get("CONTRATO TEMPORARIO",0)),"REQUISITADO":int(counts.get("REQUISITADO",0)),"TOTAL_GERAL":len(sector_df)})
+  for specialty,specialty_df in sector_df.groupby("ESPECIALIDADE",sort=True,dropna=False):
+   counts=specialty_df["CATEGORIA_VINCULO"].value_counts();rows.append({"TIPO_LINHA":"ESPECIALIDADE","SETOR":setor,"ESPECIALIDADE":specialty,"EFETIVOS":int(counts.get("EFETIVO",0)),"CONTRATO_TEMPORARIO":int(counts.get("CONTRATO TEMPORARIO",0)),"REQUISITADO":int(counts.get("REQUISITADO",0)),"TOTAL_GERAL":len(specialty_df)})
+ return pd.DataFrame(rows,columns=columns)
 
 def report(df):
  out=df.copy()
@@ -142,25 +161,26 @@ def excel(sheets):
   for name,df in sheets.items():df.to_excel(writer,sheet_name=name[:31],index=False);style(writer.sheets[name[:31]],df)
  return out.getvalue()
 
-def pdf(summary, detail, specialties):
+def pdf(reference):
  from reportlab.lib import colors
  from reportlab.lib.pagesizes import A4,landscape
  from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
  from reportlab.lib.units import mm
  from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle
  from xml.sax.saxutils import escape
- out=BytesIO();doc=SimpleDocTemplate(out,pagesize=landscape(A4),leftMargin=12*mm,rightMargin=12*mm,topMargin=10*mm,bottomMargin=10*mm,title="Resumo de médicos")
- styles=getSampleStyleSheet(); title=ParagraphStyle("t",parent=styles["Title"],fontSize=18,textColor=colors.HexColor("#16324F")); cell=ParagraphStyle("c",parent=styles["Normal"],fontSize=7,leading=8);head=ParagraphStyle("h",parent=cell,textColor=colors.white,fontName="Helvetica-Bold")
- story=[Paragraph("Resumo estatístico — Médicos por setor",title),Paragraph(f"Gerado em {datetime.today().strftime('%d/%m/%Y %H:%M')} | Cargos considerados: MÉDICO, MEDICO - RQE e MEDICO CLINICO",styles["Normal"]),Spacer(1,6*mm)]
- data=[[Paragraph(x,head) for x in ["Setor","Médicos","Vínculos","Especialidades"]]]
- for _,r in summary.iterrows():data.append([Paragraph(escape(text(r.SETOR)),cell),text(r.MEDICOS),text(r.VINCULOS),Paragraph(escape(text(r.ESPECIALIDADES)),cell)])
- if len(data)==1:data.append([Paragraph("Nenhum médico encontrado.",cell),"","",""])
- t=Table(data,colWidths=[75*mm,25*mm,25*mm,130*mm],repeatRows=1);t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#0F766E")),("GRID",(0,0),(-1,-1),.35,colors.HexColor("#CBD5E1")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")]),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
- story += [t,Spacer(1,6*mm),Paragraph("Especialidades por setor",styles["Heading2"])]
- data2=[[Paragraph(x,head) for x in ["Setor","Especialidade","Médicos"]]]
- for _,r in specialties.iterrows():data2.append([Paragraph(escape(text(r.SETOR)),cell),Paragraph(escape(text(r.ESPECIALIDADE)),cell),text(r.MEDICOS)])
- t2=Table(data2,colWidths=[100*mm,120*mm,35*mm],repeatRows=1);t2.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#16324F")),("GRID",(0,0),(-1,-1),.35,colors.HexColor("#CBD5E1")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")])]))
- story.append(t2);doc.build(story);return out.getvalue()
+ out=BytesIO();doc=SimpleDocTemplate(out,pagesize=landscape(A4),leftMargin=10*mm,rightMargin=10*mm,topMargin=9*mm,bottomMargin=9*mm,title="Número de médicos por especialidade")
+ styles=getSampleStyleSheet();title=ParagraphStyle("t",parent=styles["Title"],fontSize=16,textColor=colors.HexColor("#16324F"),alignment=1,spaceAfter=3);sub=ParagraphStyle("s",parent=styles["Normal"],fontSize=8,textColor=colors.HexColor("#64748B"),alignment=1,spaceAfter=7);cell=ParagraphStyle("c",parent=styles["Normal"],fontSize=6.8,leading=7.8);head=ParagraphStyle("h",parent=cell,textColor=colors.white,fontName="Helvetica-Bold",alignment=1)
+ story=[Paragraph("NÚMERO DE MÉDICOS POR ESPECIALIDADE",title),Paragraph(f"Gerado em {datetime.today().strftime('%d/%m/%Y %H:%M')} | Cargos: MÉDICO, MEDICO - RQE e MEDICO CLINICO",sub)]
+ data=[[Paragraph("LOTAÇÃO/ESPECIALIDADE",head),Paragraph("Efetivos",head),Paragraph("Contrato Temporário",head),Paragraph("Requisitado",head),Paragraph("Total Geral",head)]]
+ for _,r in reference.iterrows():
+  label=text(r.ESPECIALIDADE); style=ParagraphStyle("row",parent=cell,fontName="Helvetica-Bold" if r.TIPO_LINHA=="SETOR" else "Helvetica",leftIndent=0 if r.TIPO_LINHA=="SETOR" else 12)
+  data.append([Paragraph(escape(label),style),str(r.EFETIVOS or "-"),str(r.CONTRATO_TEMPORARIO or "-"),str(r.REQUISITADO or "-"),str(r.TOTAL_GERAL or "-")])
+ if len(data)==1:data.append([Paragraph("Nenhum médico encontrado.",cell),"-","-","-","-"])
+ table=Table(data,colWidths=[155*mm,27*mm,38*mm,27*mm,27*mm],repeatRows=1)
+ table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#16324F")),("GRID",(0,0),(-1,-1),.3,colors.HexColor("#CBD5E1")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")]),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(1,1),(-1,-1),"CENTER")]))
+ for index,row in enumerate(reference.itertuples(),start=1):
+  if row.TIPO_LINHA=="SETOR":table.setStyle(TableStyle([("BACKGROUND",(0,index),(-1,index),colors.HexColor("#E6FFFA")),("FONTNAME",(0,index),(-1,index),"Helvetica-Bold")]))
+ story.append(table);doc.build(story);return out.getvalue()
 
 def main():
  st.markdown('<div class="hero"><div>RELATÓRIO DE CBO</div><h1>Médicos por setor</h1><p>Relação de médicos e especialidades cadastradas em cada setor.</p></div>',unsafe_allow_html=True)
@@ -175,16 +195,16 @@ def main():
  sectors=["(Todos)"]+sorted(doctors.SETOR.unique().tolist()) if len(doctors) else ["(Todos)"]
  with st.sidebar:sector=st.selectbox("Filtrar setor",sectors)
  filtered=doctors if sector=="(Todos)" else doctors[doctors.SETOR==sector]
- detail=report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors)
+ detail=report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
  k1,k2,k3=st.columns(3);k1.metric("Médicos",doctors.NUMFUNC.nunique());k2.metric("Vínculos",len(doctors));k3.metric("Setores",doctors.SETOR.nunique())
- tabs=st.tabs(["Relação de médicos","Resumo por setor","Especialidades por setor"])
+ tabs=st.tabs(["Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"])
  with tabs[0]:
   if detail.empty:st.warning("Nenhum médico encontrado com os três cargos definidos.")
   else:st.dataframe(detail,use_container_width=True,hide_index=True,height=520)
- with tabs[1]:st.dataframe(sector_summary,use_container_width=True,hide_index=True)
+ with tabs[1]:st.dataframe(reference.drop(columns=["TIPO_LINHA"]),use_container_width=True,hide_index=True)
  with tabs[2]:st.dataframe(specialty_summary,use_container_width=True,hide_index=True)
  st.markdown("---");st.subheader("Exportar relatórios")
- xlsx=excel({"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary});p=pdf(sector_summary,detail,specialty_summary)
+ xlsx=excel({"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Resumo padrão PDF":reference});p=pdf(reference)
  a,b=st.columns(2)
  with a:st.download_button("Baixar Excel",xlsx,f"relatorio_medicos_cbo_{datetime.today():%Y%m%d}.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
  with b:st.download_button("Baixar resumo em PDF",p,f"resumo_medicos_cbo_{datetime.today():%Y%m%d}.pdf","application/pdf",use_container_width=True)

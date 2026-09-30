@@ -17,8 +17,9 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - Relação detalhada de médicos por setor.
 - Resumo por setor com médicos, vínculos e especialidades.
 - Tabela de especialidades por setor com quantidade de médicos.
-- Excel com três abas, A4 paisagem e uma página de largura.
-- PDF estatístico com os resumos.
+- Resumo no padrão do relatório de referência: uma linha total por setor e linhas detalhadas por especialidade, com Efetivos, Contrato Temporário, Requisitado e Total Geral.
+- Excel com quatro abas, A4 paisagem e uma página de largura.
+- PDF estatístico no mesmo formato hierárquico do relatório de referência.
 
 ## Execução
 
