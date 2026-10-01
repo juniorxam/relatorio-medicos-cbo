@@ -136,6 +136,18 @@ def test_management_specialty_reports_scaled_hours_and_contractual_load():
     assert specialty.loc["Clínica médica", "HORAS_ESCALADAS"] == 4
 
 
+def test_management_specialty_uses_contractual_hours_when_scaled_hours_are_absent():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO", "CARGA HORARIA"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "24"],
+        ["MÉDICO", "Cardio", "11", "1", "Bia", "Cardiologia", "36"],
+    ])))
+
+    specialty = app.management_specialty(df)
+
+    assert specialty.loc[0, "HORAS_ESCALADAS"] == 60
+
+
 def test_unique_doctors_count_does_not_count_multiple_links_twice():
     df = app.clean(app.parse(pd.DataFrame([
         ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "CPF", "OCUPACAO"],

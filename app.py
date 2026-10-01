@@ -226,7 +226,9 @@ def management_specialty(df):
   if c not in work:work[c]=""
  work[KEY_COLUMN]=chaves_vinculo(work)
  work["OCUPACAO"]=work["OCUPACAO"].replace("","Não informada")
- work["HORAS_ESCALADAS_NUM"]=pd.to_numeric(work["CARGA HORARIA ESCALADA"],errors="coerce").fillna(0)
+ escaladas=pd.to_numeric(work["CARGA HORARIA ESCALADA"],errors="coerce")
+ if escaladas.notna().sum()==0:escaladas=pd.to_numeric(work["CARGA HORARIA"],errors="coerce")
+ work["HORAS_ESCALADAS_NUM"]=escaladas.fillna(0)
  work["CARGA_HORARIA_NUM"]=pd.to_numeric(work["CARGA HORARIA"],errors="coerce").fillna(0)
  # Primeiro consolida cada vínculo dentro da especialidade para não duplicar a carga contratual.
  links=work.groupby(["OCUPACAO",KEY_COLUMN],as_index=False).agg(ESCALAS=(KEY_COLUMN,"size"),HORAS_ESCALADAS=("HORAS_ESCALADAS_NUM","sum"),CARGA_HORARIA=("CARGA_HORARIA_NUM","max"))
@@ -333,7 +335,7 @@ def main():
   if len(sector_management):st.bar_chart(sector_management.set_index("SETOR")[["HORAS_ESCALADAS","CARGA_HORARIA"]])
  with tabs[2]:
   st.subheader("Horas escaladas por especialidade")
-  st.caption("As horas escaladas são somadas por registro; a carga contratual é consolidada uma vez por vínculo dentro de cada especialidade.")
+  st.caption("As horas são somadas por registro; a carga contratual é consolidada uma vez por vínculo dentro de cada especialidade. Se a planilha não tiver CARGA HORARIA ESCALADA, CARGA HORARIA é usada como fallback.")
   st.dataframe(specialty_management,use_container_width=True,hide_index=True)
   if len(specialty_management):st.bar_chart(specialty_management.set_index("OCUPACAO")[["HORAS_ESCALADAS","CARGA_HORARIA"]])
  with tabs[3]:
