@@ -19,7 +19,7 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - A tela informa quantos registros repetidos foram removidos; identificadores vindos do Excel como `10.0` e `1.0` são normalizados corretamente antes da comparação.
 - Registros sem `NUMFUNC` ou `NUMVINC` não são agrupados artificialmente em uma única chave; o sistema mantém esses registros separados e exibe um alerta para conferência.
 - Painel gerencial com filtros por setor, vínculo e especialidade.
-- Indicadores de médicos únicos, escalas/registros, setores e horas escaladas. Médico único usa `NUMFUNC`; quando esse identificador não existe, usa CPF e, na ausência de ambos, mantém a linha isolada. Vínculos distintos continuam sendo identificados por `NUMFUNC + NUMVINC`.
+- Indicadores de médicos únicos, escalas/registros, setores e horas escaladas. A chave oficial para médico/vínculo é a coluna `NUMFUNC-NUMVINC`; identificadores incompletos recebem uma chave técnica distinta por linha para não agrupar registros sem confirmação.
 - Análise de capacidade por setor, com horas escaladas, carga contratual, saldo e percentual de cobertura.
 - Distribuição por especialidade e tipo de vínculo, além de identificação de setores com maior concentração.
 - Alertas de qualidade para CPF, setor, especialidade, carga horária e vínculos não classificados.

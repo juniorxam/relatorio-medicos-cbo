@@ -110,6 +110,7 @@ def test_management_analysis_counts_unique_links_scales_and_hours():
     sector = app.management_sector(df)
 
     assert len(base) == 2
+    assert base[app.KEY_COLUMN].tolist() == ["10-1", "11-1"]
     assert base.loc[base.CHAVE_VINCULO == "10-1", "ESCALAS"].iloc[0] == 2
     assert sector.MEDICOS.iloc[0] == 2
     assert sector.ESCALAS.iloc[0] == 3
@@ -125,18 +126,20 @@ def test_unique_doctors_count_does_not_count_multiple_links_twice():
         ["MÉDICO", "Cardio", "11", "1", "Bia", "55566677788", "Cardiologia"],
     ])))
 
-    assert app.medicos_unicos_count(df) == 2
-    assert app.management_sector(df).MEDICOS.iloc[0] == 2
+    assert df[app.KEY_COLUMN].tolist() == ["10-1", "10-2", "11-1"]
+    assert app.medicos_unicos_count(df) == 3
+    assert app.management_sector(df).MEDICOS.iloc[0] == 3
 
 
-def test_unique_doctors_falls_back_to_cpf_when_numfunc_is_missing():
+def test_missing_numfunc_or_numvinc_gets_a_distinct_key_per_row():
     df = app.clean(app.parse(pd.DataFrame([
         ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "CPF", "OCUPACAO"],
         ["MÉDICO", "Cardio", "", "1", "Ana", "11122233344", "Cardiologia"],
         ["MÉDICO", "Cardio", "", "2", "Ana", "11122233344", "Cardiologia"],
     ])))
 
-    assert app.medicos_unicos_count(df) == 1
+    assert df[app.KEY_COLUMN].tolist() == ["SEM_CHAVE_1", "SEM_CHAVE_2"]
+    assert app.medicos_unicos_count(df) == 2
 
 
 def test_missing_composite_ids_are_not_collapsed_into_one_server():
