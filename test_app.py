@@ -117,6 +117,28 @@ def test_management_analysis_counts_unique_links_scales_and_hours():
     assert sector.CARGA_HORARIA.iloc[0] == 48
 
 
+def test_unique_doctors_count_does_not_count_multiple_links_twice():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "CPF", "OCUPACAO"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "11122233344", "Cardiologia"],
+        ["MÉDICO", "Cardio", "10", "2", "Ana", "11122233344", "Cardiologia"],
+        ["MÉDICO", "Cardio", "11", "1", "Bia", "55566677788", "Cardiologia"],
+    ])))
+
+    assert app.medicos_unicos_count(df) == 2
+    assert app.management_sector(df).MEDICOS.iloc[0] == 2
+
+
+def test_unique_doctors_falls_back_to_cpf_when_numfunc_is_missing():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "CPF", "OCUPACAO"],
+        ["MÉDICO", "Cardio", "", "1", "Ana", "11122233344", "Cardiologia"],
+        ["MÉDICO", "Cardio", "", "2", "Ana", "11122233344", "Cardiologia"],
+    ])))
+
+    assert app.medicos_unicos_count(df) == 1
+
+
 def test_missing_composite_ids_are_not_collapsed_into_one_server():
     df = app.clean(app.parse(pd.DataFrame([
         ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO"],

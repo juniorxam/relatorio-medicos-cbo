@@ -68,6 +68,20 @@ def chaves_vinculo(df):
   keys.append(f"{numfunc}-{numvinc}" if numfunc and numvinc else f"SEM_CHAVE_{index+1}")
  return pd.Series(keys,index=df.index,dtype="string")
 
+def chaves_medico(df):
+ keys=[]
+ for index,row in df.reset_index(drop=True).iterrows():
+  numfunc=identificador(row.get("NUMFUNC",""))
+  if numfunc:
+   keys.append(f"NUMFUNC_{numfunc}");continue
+  cpf=identificador(row.get("CPF",""))
+  keys.append(f"CPF_{cpf}" if cpf else f"SEM_IDENTIFICADOR_{index+1}")
+ return pd.Series(keys,index=df.index,dtype="string")
+
+def medicos_unicos_count(df):
+ if df.empty:return 0
+ return int(chaves_medico(df).nunique())
+
 def read_raw(data,name):
  if name.casefold().endswith(".csv"):
   for enc in ("utf-8-sig","utf-8","cp1252","latin1"):
@@ -181,31 +195,32 @@ def unique_servers_report(df):
 
 def summary_sector(df):
  if df.empty:return pd.DataFrame(columns=["SETOR","MEDICOS","VINCULOS","ESPECIALIDADES"])
- out=df.assign(_ESP=df["OCUPACAO"].replace("","Não informada"))
- return out.groupby("SETOR",dropna=False).agg(MEDICOS=("NUMFUNC","nunique"),VINCULOS=("NUMVINC","count"),ESPECIALIDADES=("_ESP",lambda x:"; ".join(sorted(set(x))))).reset_index().sort_values("SETOR")
+ out=df.assign(_CHAVE_MEDICO=chaves_medico(df),_ESP=df["OCUPACAO"].replace("","Não informada"))
+ return out.groupby("SETOR",dropna=False).agg(MEDICOS=("_CHAVE_MEDICO","nunique"),VINCULOS=("NUMVINC","count"),ESPECIALIDADES=("_ESP",lambda x:"; ".join(sorted(set(x))))).reset_index().sort_values("SETOR")
 
 def summary_specialty(df):
  if df.empty:return pd.DataFrame(columns=["SETOR","ESPECIALIDADE","MEDICOS"])
- out=df.assign(ESPECIALIDADE=df["OCUPACAO"].replace("","Não informada"))
- return out.groupby(["SETOR","ESPECIALIDADE"],dropna=False).agg(MEDICOS=("NUMFUNC","nunique")).reset_index().sort_values(["SETOR","ESPECIALIDADE"])
+ out=df.assign(_CHAVE_MEDICO=chaves_medico(df),ESPECIALIDADE=df["OCUPACAO"].replace("","Não informada"))
+ return out.groupby(["SETOR","ESPECIALIDADE"],dropna=False).agg(MEDICOS=("_CHAVE_MEDICO","nunique")).reset_index().sort_values(["SETOR","ESPECIALIDADE"])
 
 def management_base(df):
- columns=["CHAVE_VINCULO","NUMFUNC","NUMVINC","SERVIDOR","SETOR","OCUPACAO","VINCULO","ESCALAS","HORAS_ESCALADAS","CARGA_HORARIA"]
+ columns=["CHAVE_VINCULO","CHAVE_MEDICO","NUMFUNC","NUMVINC","SERVIDOR","SETOR","OCUPACAO","VINCULO","ESCALAS","HORAS_ESCALADAS","CARGA_HORARIA"]
  if df.empty:return pd.DataFrame(columns=columns)
  work=df.copy()
  for c in ["SERVIDOR","SETOR","OCUPACAO","VINCULO"]:
   if c not in work:work[c]=""
  work["CHAVE_VINCULO"]=chaves_vinculo(work)
+ work["CHAVE_MEDICO"]=chaves_medico(work)
  work["HORAS_ESCALADAS_NUM"]=pd.to_numeric(work.get("CARGA HORARIA ESCALADA",pd.Series(index=work.index)),errors="coerce").fillna(0)
  work["CARGA_HORARIA_NUM"]=pd.to_numeric(work.get("CARGA HORARIA",pd.Series(index=work.index)),errors="coerce").fillna(0)
- out=work.groupby("CHAVE_VINCULO",as_index=False).agg(NUMFUNC=("NUMFUNC","first"),NUMVINC=("NUMVINC","first"),SERVIDOR=("SERVIDOR","first"),SETOR=("SETOR","first"),OCUPACAO=("OCUPACAO","first"),VINCULO=("VINCULO","first"),ESCALAS=("CHAVE_VINCULO","size"),HORAS_ESCALADAS=("HORAS_ESCALADAS_NUM","sum"),CARGA_HORARIA=("CARGA_HORARIA_NUM","max"))
+ out=work.groupby("CHAVE_VINCULO",as_index=False).agg(CHAVE_MEDICO=("CHAVE_MEDICO","first"),NUMFUNC=("NUMFUNC","first"),NUMVINC=("NUMVINC","first"),SERVIDOR=("SERVIDOR","first"),SETOR=("SETOR","first"),OCUPACAO=("OCUPACAO","first"),VINCULO=("VINCULO","first"),ESCALAS=("CHAVE_VINCULO","size"),HORAS_ESCALADAS=("HORAS_ESCALADAS_NUM","sum"),CARGA_HORARIA=("CARGA_HORARIA_NUM","max"))
  return out[columns]
 
 def management_sector(df):
  base=management_base(df)
  columns=["SETOR","MEDICOS","ESCALAS","HORAS_ESCALADAS","CARGA_HORARIA","SALDO_CARGA","COBERTURA_PCT"]
  if base.empty:return pd.DataFrame(columns=columns)
- out=base.groupby("SETOR",dropna=False).agg(MEDICOS=("CHAVE_VINCULO","nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum"),CARGA_HORARIA=("CARGA_HORARIA","sum")).reset_index()
+ out=base.groupby("SETOR",dropna=False).agg(MEDICOS=("CHAVE_MEDICO","nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum"),CARGA_HORARIA=("CARGA_HORARIA","sum")).reset_index()
  out["SALDO_CARGA"]=out["CARGA_HORARIA"]-out["HORAS_ESCALADAS"]
  out["COBERTURA_PCT"]=out.apply(lambda r:round(r.HORAS_ESCALADAS/r.CARGA_HORARIA*100,1) if r.CARGA_HORARIA else 0,axis=1)
  return out.sort_values("SETOR")
@@ -213,12 +228,12 @@ def management_sector(df):
 def management_specialty(df):
  base=management_base(df)
  if base.empty:return pd.DataFrame(columns=["OCUPACAO","MEDICOS","ESCALAS","HORAS_ESCALADAS"])
- return base.assign(OCUPACAO=base["OCUPACAO"].replace("","Não informada")).groupby("OCUPACAO",dropna=False).agg(MEDICOS=("CHAVE_VINCULO","nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum")).reset_index().sort_values("MEDICOS",ascending=False)
+ return base.assign(OCUPACAO=base["OCUPACAO"].replace("","Não informada")).groupby("OCUPACAO",dropna=False).agg(MEDICOS=("CHAVE_MEDICO","nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum")).reset_index().sort_values("MEDICOS",ascending=False)
 
 def management_vinculo(df):
  base=management_base(df)
  if base.empty:return pd.DataFrame(columns=["VINCULO","MEDICOS","ESCALAS"])
- return base.assign(VINCULO=base["VINCULO"].replace("","Não informado")).groupby("VINCULO",dropna=False).agg(MEDICOS=("CHAVE_VINCULO","nunique"),ESCALAS=("ESCALAS","sum")).reset_index().sort_values("MEDICOS",ascending=False)
+ return base.assign(VINCULO=base["VINCULO"].replace("","Não informado")).groupby("VINCULO",dropna=False).agg(MEDICOS=("CHAVE_MEDICO","nunique"),ESCALAS=("ESCALAS","sum")).reset_index().sort_values("MEDICOS",ascending=False)
 
 def quality_summary(df):
  if df.empty:return pd.DataFrame(columns=["INDICADOR","REGISTROS"])
@@ -289,7 +304,7 @@ def main():
  if especialidade!="(Todas)":filtered=filtered[filtered["OCUPACAO"].map(text)==especialidade]
  detail=report(filtered);unique_servers=unique_servers_report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
  base_management=management_base(filtered);sector_management=management_sector(filtered);specialty_management=management_specialty(filtered);vinculo_management=management_vinculo(filtered);quality=quality_summary(filtered)
- unique_count=len(base_management);total_scales=len(filtered);total_hours=base_management["HORAS_ESCALADAS"].sum() if len(base_management) else 0
+ unique_count=medicos_unicos_count(filtered);total_scales=len(filtered);total_hours=base_management["HORAS_ESCALADAS"].sum() if len(base_management) else 0
  missing_key=((filtered["NUMFUNC"].map(identificador)=="")|(filtered["NUMVINC"].map(identificador)=="")).sum()
  k1,k2,k3,k4=st.columns(4);k1.metric("Médicos únicos",unique_count);k2.metric("Escalas/registros",total_scales);k3.metric("Setores",filtered["SETOR"].nunique());k4.metric("Horas escaladas",f"{total_hours:,.0f}".replace(",","."))
  if missing_key:st.warning(f"{missing_key} registro(s) não possuem NUMFUNC ou NUMVINC. Eles não são agrupados entre si, pois não é possível confirmar que representam o mesmo vínculo.")
