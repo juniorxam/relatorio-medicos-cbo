@@ -48,6 +48,10 @@ def test_report_order_and_excel_pdf_exports():
     pdf = app.pdf(app.reference_summary(df))
     assert pdf.startswith(b"%PDF")
 
+    pdf_with_hours = app.pdf(app.reference_summary(df), app.management_specialty(df))
+    assert pdf_with_hours.startswith(b"%PDF")
+    assert len(pdf_with_hours) > len(pdf)
+
 
 def test_read_raw_falls_back_to_text_when_excel_extension_is_misleading():
     content = b"CARGO;SETOR;NUMFUNC;NUMVINC\nMEDICO;Cardio;1;1\n"

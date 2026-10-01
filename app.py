@@ -266,12 +266,12 @@ def excel(sheets):
   for name,df in sheets.items():df.to_excel(writer,sheet_name=name[:31],index=False);style(writer.sheets[name[:31]],df)
  return out.getvalue()
 
-def pdf(reference):
+def pdf(reference,specialty_hours=None):
  from reportlab.lib import colors
  from reportlab.lib.pagesizes import A4,landscape
  from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
  from reportlab.lib.units import mm
- from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle
+ from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,PageBreak
  from xml.sax.saxutils import escape
  out=BytesIO();doc=SimpleDocTemplate(out,pagesize=landscape(A4),leftMargin=10*mm,rightMargin=10*mm,topMargin=9*mm,bottomMargin=9*mm,title="Número de médicos por especialidade")
  styles=getSampleStyleSheet();title=ParagraphStyle("t",parent=styles["Title"],fontSize=16,textColor=colors.HexColor("#16324F"),alignment=1,spaceAfter=3);sub=ParagraphStyle("s",parent=styles["Normal"],fontSize=8,textColor=colors.HexColor("#64748B"),alignment=1,spaceAfter=7);cell=ParagraphStyle("c",parent=styles["Normal"],fontSize=6.8,leading=7.8);head=ParagraphStyle("h",parent=cell,textColor=colors.white,fontName="Helvetica-Bold",alignment=1)
@@ -286,7 +286,19 @@ def pdf(reference):
  for index,row in enumerate(reference.itertuples(),start=1):
   if row.TIPO_LINHA=="SETOR":table.setStyle(TableStyle([("BACKGROUND",(0,index),(-1,index),colors.HexColor("#E6FFFA")),("FONTNAME",(0,index),(-1,index),"Helvetica-Bold")]))
   if row.TIPO_LINHA=="TOTAL":table.setStyle(TableStyle([("BACKGROUND",(0,index),(-1,index),colors.HexColor("#D1FAE5")),("FONTNAME",(0,index),(-1,index),"Helvetica-Bold"),("LINEABOVE",(0,index),(-1,index),1,colors.HexColor("#0F766E"))]))
- story.append(table);doc.build(story);return out.getvalue()
+ story.append(table)
+ if specialty_hours is not None:
+  story.append(PageBreak())
+  story.append(Paragraph("HORAS ESCALADAS POR ESPECIALIDADE",title))
+  story.append(Paragraph("Consolidado por especialidade conforme os filtros selecionados",sub))
+  hours_data=[[Paragraph("ESPECIALIDADE",head),Paragraph("Médicos",head),Paragraph("Escalas",head),Paragraph("Horas escaladas",head),Paragraph("Carga horária",head),Paragraph("Saldo",head),Paragraph("Cobertura",head)]]
+  for row in specialty_hours.itertuples(index=False):
+   hours_data.append([Paragraph(escape(text(row.OCUPACAO)),cell),str(int(row.MEDICOS)),str(int(row.ESCALAS)),str(int(row.HORAS_ESCALADAS)),str(int(row.CARGA_HORARIA)),str(int(row.SALDO_CARGA)),f"{row.COBERTURA_PCT:.1f}%"])
+  if len(hours_data)==1:hours_data.append([Paragraph("Nenhuma especialidade encontrada.",cell),"-","-","-","-","-","-"])
+  hours_table=Table(hours_data,colWidths=[82*mm,20*mm,20*mm,31*mm,27*mm,20*mm,23*mm],repeatRows=1)
+  hours_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#16324F")),("GRID",(0,0),(-1,-1),.3,colors.HexColor("#CBD5E1")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")]),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(1,1),(-1,-1),"CENTER")]))
+  story.append(hours_table)
+ doc.build(story);return out.getvalue()
 
 def main():
  st.markdown('<div class="hero"><div>RELATÓRIO DE CBO</div><h1>Médicos por setor</h1><p>Relação de médicos e especialidades cadastradas em cada setor.</p></div>',unsafe_allow_html=True)
@@ -309,7 +321,7 @@ def main():
  filtered=doctors if sector=="(Todos)" else doctors[doctors.SETOR==sector]
  if vinculo!="(Todos)":filtered=filtered[filtered["VINCULO"].map(text)==vinculo]
  if especialidade!="(Todas)":filtered=filtered[filtered["OCUPACAO"].map(text)==especialidade]
- detail=report(filtered);unique_servers=unique_servers_report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
+ detail=report(filtered);unique_servers=unique_servers_report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors);reference_filtered=reference_summary(filtered)
  base_management=management_base(filtered);sector_management=management_sector(filtered);specialty_management=management_specialty(filtered);vinculo_management=management_vinculo(filtered);quality=quality_summary(filtered)
  unique_count=medicos_unicos_count(filtered);total_scales=len(filtered);total_hours=base_management["HORAS_ESCALADAS"].sum() if len(base_management) else 0
  missing_key=((filtered["NUMFUNC"].map(identificador)=="")|(filtered["NUMVINC"].map(identificador)=="")).sum()
@@ -355,7 +367,7 @@ def main():
  st.markdown("---");st.subheader("Exportar relatórios")
  sheets={"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Horas especialidade":specialty_management,"Resumo padrão PDF":reference}
  if unique_enabled:sheets["Servidores unicos"]=unique_servers
- xlsx=excel(sheets);p=pdf(reference)
+ xlsx=excel(sheets);p=pdf(reference_filtered,specialty_management)
  a,b=st.columns(2)
  with a:st.download_button("Baixar Excel",xlsx,f"relatorio_medicos_cbo_{datetime.today():%Y%m%d}.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
  with b:st.download_button("Baixar resumo em PDF",p,f"resumo_medicos_cbo_{datetime.today():%Y%m%d}.pdf","application/pdf",use_container_width=True)

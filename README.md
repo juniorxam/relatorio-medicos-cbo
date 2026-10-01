@@ -29,7 +29,7 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - Resumo no padrão do relatório de referência: uma linha total por setor e linhas detalhadas por especialidade, com Efetivos, Contrato Temporário, Requisitado e Total Geral.
 - O resumo termina com uma linha **TOTAL GERAL**, somando todos os setores e especialidades.
 - Excel com quatro abas mais a aba opcional **Servidores unicos**, A4 paisagem e uma página de largura.
-- PDF estatístico no mesmo formato hierárquico do relatório de referência.
+- PDF estatístico no mesmo formato hierárquico do relatório de referência, com uma segunda página de horas escaladas por especialidade; a exportação usa os filtros selecionados na tela.
 - `NUMFUNC`, `NUMVINC`, `ESCALA` e `ORDEM` são exportados como números inteiros, e o CPF é apresentado no formato `000.000.000-00`.
 
 ## Execução
