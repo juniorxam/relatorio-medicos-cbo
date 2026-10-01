@@ -17,6 +17,11 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - Relação detalhada de médicos por setor.
 - Relação opcional de servidores sem repetição, usando `NUMFUNC + NUMVINC` como chave e mantendo as colunas `ORDEM`, `NUMFUNC`, `NUMVINC`, `SERVIDOR`, `SETOR`, `CARGO`, `OCUPACAO` e `CARGA HORARIA`.
 - A tela informa quantos registros repetidos foram removidos; identificadores vindos do Excel como `10.0` e `1.0` são normalizados corretamente antes da comparação.
+- Painel gerencial com filtros por setor, vínculo e especialidade.
+- Indicadores de médicos únicos, escalas/registros, setores e horas escaladas.
+- Análise de capacidade por setor, com horas escaladas, carga contratual, saldo e percentual de cobertura.
+- Distribuição por especialidade e tipo de vínculo, além de identificação de setores com maior concentração.
+- Alertas de qualidade para CPF, setor, especialidade, carga horária e vínculos não classificados.
 - Resumo por setor com médicos, vínculos e especialidades.
 - Tabela de especialidades por setor com quantidade de médicos.
 - Resumo no padrão do relatório de referência: uma linha total por setor e linhas detalhadas por especialidade, com Efetivos, Contrato Temporário, Requisitado e Total Geral.

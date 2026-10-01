@@ -96,3 +96,22 @@ def test_unique_servers_treats_excel_decimal_ids_as_the_same_key():
     ])))
 
     assert len(app.unique_servers_report(df)) == 1
+
+
+def test_management_analysis_counts_unique_links_scales_and_hours():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO", "VINCULO", "CARGA HORARIA ESCALADA", "CARGA HORARIA"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "Concursado", "12", "24"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "Concursado", "12", "24"],
+        ["MÉDICO", "Cardio", "11", "1", "Bia", "Cardiologia", "Contrato", "24", "24"],
+    ])))
+
+    base = app.management_base(df)
+    sector = app.management_sector(df)
+
+    assert len(base) == 2
+    assert base.loc[base.CHAVE_VINCULO == "10-1", "ESCALAS"].iloc[0] == 2
+    assert sector.MEDICOS.iloc[0] == 2
+    assert sector.ESCALAS.iloc[0] == 3
+    assert sector.HORAS_ESCALADAS.iloc[0] == 48
+    assert sector.CARGA_HORARIA.iloc[0] == 48
