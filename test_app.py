@@ -67,3 +67,18 @@ def test_report_formats_numeric_fields_and_cpf():
     assert int(detail.loc[0, "ESCALA"]) == 350374
     assert detail.loc[0, "CPF"] == "053.936.761-31"
     assert str(detail["NUMFUNC"].dtype) == "Int64"
+
+
+def test_unique_servers_report_deduplicates_by_numfunc_and_numvinc():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO", "ESCALA", "CARGA HORARIA"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "100", "180"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "200", "180"],
+        ["MÉDICO", "Cardio", "10", "2", "Ana", "Cardiologia", "300", "180"],
+    ])))
+
+    unique = app.unique_servers_report(df)
+
+    assert unique[["NUMFUNC", "NUMVINC"]].astype(str).values.tolist() == [["10", "1"], ["10", "2"]]
+    assert unique["ORDEM"].tolist() == [1, 2]
+    assert list(unique.columns) == app.UNIQUE_SERVER_COLUMNS

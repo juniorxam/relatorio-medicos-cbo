@@ -38,6 +38,7 @@ ALIASES={
 REQUIRED=["NUMFUNC","NUMVINC","SETOR","CARGO"]
 REPORT_COLUMNS=["ORDEM","ESCALA","DESC. ESCALA","NUMFUNC","NUMVINC","SERVIDOR","CPF","SETOR","CARGO","OCUPACAO","CARGA HORARIA ESCALADA","CARGA HORARIA"]
 NUMERIC_REPORT_COLUMNS={"ORDEM","ESCALA","NUMFUNC","NUMVINC"}
+UNIQUE_SERVER_COLUMNS=["ORDEM","NUMFUNC","NUMVINC","SERVIDOR","SETOR","CARGO","OCUPACAO","CARGA HORARIA"]
 
 
 def text(v):
@@ -149,6 +150,19 @@ def report(df):
  out["CPF"]=out["CPF"].map(cpf_formatado)
  return out
 
+def unique_servers_report(df):
+ columns=UNIQUE_SERVER_COLUMNS
+ if df.empty:return pd.DataFrame(columns=columns)
+ out=df.copy()
+ for c in columns:
+  if c not in out:out[c]=""
+ # A primeira ocorrência representa o servidor/vínculo; as demais escalas são removidas.
+ out["_CHAVE_SERVIDOR"] = out["NUMFUNC"].map(text) + "|" + out["NUMVINC"].map(text)
+ out=out.drop_duplicates("_CHAVE_SERVIDOR",keep="first").drop(columns="_CHAVE_SERVIDOR")[columns].reset_index(drop=True)
+ out["ORDEM"]=range(1,len(out)+1)
+ for c in {"ORDEM","NUMFUNC","NUMVINC"}:out[c]=inteiro_coluna(out[c])
+ return out
+
 def summary_sector(df):
  if df.empty:return pd.DataFrame(columns=["SETOR","MEDICOS","VINCULOS","ESPECIALIDADES"])
  out=df.assign(_ESP=df["OCUPACAO"].replace("","Não informada"))
@@ -210,18 +224,26 @@ def main():
   doctors=clean(raw)
  except Exception as e:st.error(f"Não foi possível processar a planilha: {e}");st.stop()
  sectors=["(Todos)"]+sorted(doctors.SETOR.unique().tolist()) if len(doctors) else ["(Todos)"]
- with st.sidebar:sector=st.selectbox("Filtrar setor",sectors)
+ with st.sidebar:
+  sector=st.selectbox("Filtrar setor",sectors)
+  unique_enabled=st.checkbox("Gerar relatório de servidores sem repetição",value=True,help="Remove registros repetidos usando NUMFUNC + NUMVINC como chave.")
  filtered=doctors if sector=="(Todos)" else doctors[doctors.SETOR==sector]
- detail=report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
+ detail=report(filtered);unique_servers=unique_servers_report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
  k1,k2,k3=st.columns(3);k1.metric("Médicos",doctors.NUMFUNC.nunique());k2.metric("Vínculos",len(doctors));k3.metric("Setores",doctors.SETOR.nunique())
- tabs=st.tabs(["Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"])
+ tab_names=["Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"]
+ if unique_enabled:tab_names.append("Servidores sem repetição")
+ tabs=st.tabs(tab_names)
  with tabs[0]:
   if detail.empty:st.warning("Nenhum médico encontrado com os três cargos definidos.")
   else:st.dataframe(detail,use_container_width=True,hide_index=True,height=520)
  with tabs[1]:st.dataframe(reference.drop(columns=["TIPO_LINHA"]),use_container_width=True,hide_index=True)
  with tabs[2]:st.dataframe(specialty_summary,use_container_width=True,hide_index=True)
+ if unique_enabled:
+  with tabs[3]:st.dataframe(unique_servers,use_container_width=True,hide_index=True)
  st.markdown("---");st.subheader("Exportar relatórios")
- xlsx=excel({"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Resumo padrão PDF":reference});p=pdf(reference)
+ sheets={"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Resumo padrão PDF":reference}
+ if unique_enabled:sheets["Servidores unicos"]=unique_servers
+ xlsx=excel(sheets);p=pdf(reference)
  a,b=st.columns(2)
  with a:st.download_button("Baixar Excel",xlsx,f"relatorio_medicos_cbo_{datetime.today():%Y%m%d}.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
  with b:st.download_button("Baixar resumo em PDF",p,f"resumo_medicos_cbo_{datetime.today():%Y%m%d}.pdf","application/pdf",use_container_width=True)
