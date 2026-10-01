@@ -32,6 +32,10 @@ def test_summaries_include_specialties_by_sector():
     reference = app.reference_summary(df)
     assert reference.iloc[0]["TIPO_LINHA"] == "SETOR"
     assert set(reference["CONTRATO_TEMPORARIO"]) == {0}
+    total = reference.iloc[-1]
+    assert total["TIPO_LINHA"] == "TOTAL"
+    assert total["TOTAL_GERAL"] == 3
+    assert total["EFETIVOS"] == 0
 
 
 def test_report_order_and_excel_pdf_exports():

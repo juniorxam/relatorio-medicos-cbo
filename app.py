@@ -139,6 +139,8 @@ def reference_summary(df):
   counts=sector_df["CATEGORIA_VINCULO"].value_counts(); rows.append({"TIPO_LINHA":"SETOR","SETOR":setor,"ESPECIALIDADE":setor,"EFETIVOS":int(counts.get("EFETIVO",0)),"CONTRATO_TEMPORARIO":int(counts.get("CONTRATO TEMPORARIO",0)),"REQUISITADO":int(counts.get("REQUISITADO",0)),"TOTAL_GERAL":len(sector_df)})
   for specialty,specialty_df in sector_df.groupby("ESPECIALIDADE",sort=True,dropna=False):
    counts=specialty_df["CATEGORIA_VINCULO"].value_counts();rows.append({"TIPO_LINHA":"ESPECIALIDADE","SETOR":setor,"ESPECIALIDADE":specialty,"EFETIVOS":int(counts.get("EFETIVO",0)),"CONTRATO_TEMPORARIO":int(counts.get("CONTRATO TEMPORARIO",0)),"REQUISITADO":int(counts.get("REQUISITADO",0)),"TOTAL_GERAL":len(specialty_df)})
+ counts=work["CATEGORIA_VINCULO"].value_counts()
+ rows.append({"TIPO_LINHA":"TOTAL","SETOR":"TOTAL GERAL","ESPECIALIDADE":"TOTAL GERAL","EFETIVOS":int(counts.get("EFETIVO",0)),"CONTRATO_TEMPORARIO":int(counts.get("CONTRATO TEMPORARIO",0)),"REQUISITADO":int(counts.get("REQUISITADO",0)),"TOTAL_GERAL":len(work)})
  return pd.DataFrame(rows,columns=columns)
 
 def report(df):
@@ -211,6 +213,7 @@ def pdf(reference):
  table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#16324F")),("GRID",(0,0),(-1,-1),.3,colors.HexColor("#CBD5E1")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")]),("BACKGROUND",(0,1),(-1,-1),colors.white),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(1,1),(-1,-1),"CENTER")]))
  for index,row in enumerate(reference.itertuples(),start=1):
   if row.TIPO_LINHA=="SETOR":table.setStyle(TableStyle([("BACKGROUND",(0,index),(-1,index),colors.HexColor("#E6FFFA")),("FONTNAME",(0,index),(-1,index),"Helvetica-Bold")]))
+  if row.TIPO_LINHA=="TOTAL":table.setStyle(TableStyle([("BACKGROUND",(0,index),(-1,index),colors.HexColor("#D1FAE5")),("FONTNAME",(0,index),(-1,index),"Helvetica-Bold"),("LINEABOVE",(0,index),(-1,index),1,colors.HexColor("#0F766E"))]))
  story.append(table);doc.build(story);return out.getvalue()
 
 def main():
