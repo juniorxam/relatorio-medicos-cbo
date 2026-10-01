@@ -17,6 +17,7 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - Relação detalhada de médicos por setor.
 - Relação opcional de servidores sem repetição, usando `NUMFUNC + NUMVINC` como chave e mantendo as colunas `ORDEM`, `NUMFUNC`, `NUMVINC`, `SERVIDOR`, `SETOR`, `CARGO`, `OCUPACAO` e `CARGA HORARIA`.
 - A tela informa quantos registros repetidos foram removidos; identificadores vindos do Excel como `10.0` e `1.0` são normalizados corretamente antes da comparação.
+- Registros sem `NUMFUNC` ou `NUMVINC` não são agrupados artificialmente em uma única chave; o sistema mantém esses registros separados e exibe um alerta para conferência.
 - Painel gerencial com filtros por setor, vínculo e especialidade.
 - Indicadores de médicos únicos, escalas/registros, setores e horas escaladas.
 - Análise de capacidade por setor, com horas escaladas, carga contratual, saldo e percentual de cobertura.

@@ -61,6 +61,13 @@ def identificador(v):
  digits=re.sub(r"\D","",s)
  return digits.lstrip("0") or "0" if digits else ""
 
+def chaves_vinculo(df):
+ keys=[]
+ for index,row in df.reset_index(drop=True).iterrows():
+  numfunc=identificador(row.get("NUMFUNC",""));numvinc=identificador(row.get("NUMVINC",""))
+  keys.append(f"{numfunc}-{numvinc}" if numfunc and numvinc else f"SEM_CHAVE_{index+1}")
+ return pd.Series(keys,index=df.index,dtype="string")
+
 def read_raw(data,name):
  if name.casefold().endswith(".csv"):
   for enc in ("utf-8-sig","utf-8","cp1252","latin1"):
@@ -166,7 +173,7 @@ def unique_servers_report(df):
  for c in columns:
   if c not in out:out[c]=""
  # A primeira ocorrência representa o servidor/vínculo; as demais escalas são removidas.
- out["_CHAVE_SERVIDOR"] = out["NUMFUNC"].map(identificador) + "|" + out["NUMVINC"].map(identificador)
+ out["_CHAVE_SERVIDOR"] = chaves_vinculo(out)
  out=out.drop_duplicates("_CHAVE_SERVIDOR",keep="first").drop(columns="_CHAVE_SERVIDOR")[columns].reset_index(drop=True)
  out["ORDEM"]=range(1,len(out)+1)
  for c in {"ORDEM","NUMFUNC","NUMVINC"}:out[c]=inteiro_coluna(out[c])
@@ -188,7 +195,7 @@ def management_base(df):
  work=df.copy()
  for c in ["SERVIDOR","SETOR","OCUPACAO","VINCULO"]:
   if c not in work:work[c]=""
- work["CHAVE_VINCULO"]=work["NUMFUNC"].map(identificador)+"-"+work["NUMVINC"].map(identificador)
+ work["CHAVE_VINCULO"]=chaves_vinculo(work)
  work["HORAS_ESCALADAS_NUM"]=pd.to_numeric(work.get("CARGA HORARIA ESCALADA",pd.Series(index=work.index)),errors="coerce").fillna(0)
  work["CARGA_HORARIA_NUM"]=pd.to_numeric(work.get("CARGA HORARIA",pd.Series(index=work.index)),errors="coerce").fillna(0)
  out=work.groupby("CHAVE_VINCULO",as_index=False).agg(NUMFUNC=("NUMFUNC","first"),NUMVINC=("NUMVINC","first"),SERVIDOR=("SERVIDOR","first"),SETOR=("SETOR","first"),OCUPACAO=("OCUPACAO","first"),VINCULO=("VINCULO","first"),ESCALAS=("CHAVE_VINCULO","size"),HORAS_ESCALADAS=("HORAS_ESCALADAS_NUM","sum"),CARGA_HORARIA=("CARGA_HORARIA_NUM","max"))
@@ -283,7 +290,9 @@ def main():
  detail=report(filtered);unique_servers=unique_servers_report(filtered);sector_summary=summary_sector(doctors);specialty_summary=summary_specialty(doctors);reference=reference_summary(doctors)
  base_management=management_base(filtered);sector_management=management_sector(filtered);specialty_management=management_specialty(filtered);vinculo_management=management_vinculo(filtered);quality=quality_summary(filtered)
  unique_count=len(base_management);total_scales=len(filtered);total_hours=base_management["HORAS_ESCALADAS"].sum() if len(base_management) else 0
+ missing_key=((filtered["NUMFUNC"].map(identificador)=="")|(filtered["NUMVINC"].map(identificador)=="")).sum()
  k1,k2,k3,k4=st.columns(4);k1.metric("Médicos únicos",unique_count);k2.metric("Escalas/registros",total_scales);k3.metric("Setores",filtered["SETOR"].nunique());k4.metric("Horas escaladas",f"{total_hours:,.0f}".replace(",","."))
+ if missing_key:st.warning(f"{missing_key} registro(s) não possuem NUMFUNC ou NUMVINC. Eles não são agrupados entre si, pois não é possível confirmar que representam o mesmo vínculo.")
  tab_names=["Painel gerencial","Capacidade e carga","Qualidade dos dados","Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"]
  if unique_enabled:tab_names.append("Servidores sem repetição")
  tabs=st.tabs(tab_names)

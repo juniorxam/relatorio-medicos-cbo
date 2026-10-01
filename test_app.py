@@ -115,3 +115,13 @@ def test_management_analysis_counts_unique_links_scales_and_hours():
     assert sector.ESCALAS.iloc[0] == 3
     assert sector.HORAS_ESCALADAS.iloc[0] == 48
     assert sector.CARGA_HORARIA.iloc[0] == 48
+
+
+def test_missing_composite_ids_are_not_collapsed_into_one_server():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO"],
+        ["MÉDICO", "Cardio", "", "", "Ana", "Cardiologia"],
+        ["MÉDICO", "Cardio", "", "", "Bia", "Cardiologia"],
+    ])))
+
+    assert len(app.unique_servers_report(df)) == 2
