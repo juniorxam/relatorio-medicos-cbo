@@ -37,6 +37,7 @@ ALIASES={
 }
 REQUIRED=["NUMFUNC","NUMVINC","SETOR","CARGO"]
 REPORT_COLUMNS=["ORDEM","ESCALA","DESC. ESCALA","NUMFUNC","NUMVINC","SERVIDOR","CPF","SETOR","CARGO","OCUPACAO","CARGA HORARIA ESCALADA","CARGA HORARIA"]
+NUMERIC_REPORT_COLUMNS={"ORDEM","ESCALA","NUMFUNC","NUMVINC"}
 
 
 def text(v):
@@ -118,6 +119,16 @@ def vinculo_categoria(value):
  if any(term in n for term in ("CONCURSADO","CONCURSADA","EFETIVO","EFETIVA","ESTATUTARIO")):return "EFETIVO"
  return "NAO CLASSIFICADO"
 
+def cpf_formatado(value):
+ digits=re.sub(r"\D","",text(value))
+ if not digits:return ""
+ digits=digits[-11:].zfill(11)
+ return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
+
+def inteiro_coluna(series):
+ values=pd.to_numeric(series.replace("",pd.NA),errors="coerce")
+ return values.astype("Int64")
+
 def reference_summary(df):
  columns=["TIPO_LINHA","SETOR","ESPECIALIDADE","EFETIVOS","CONTRATO_TEMPORARIO","REQUISITADO","TOTAL_GERAL"]
  if df.empty:return pd.DataFrame(columns=columns)
@@ -133,7 +144,10 @@ def report(df):
  out=df.copy()
  for c in REPORT_COLUMNS:
   if c not in out:out[c]=""
- out=out[REPORT_COLUMNS].reset_index(drop=True);out["ORDEM"]=range(1,len(out)+1);return out
+ out=out[REPORT_COLUMNS].reset_index(drop=True);out["ORDEM"]=range(1,len(out)+1)
+ for c in NUMERIC_REPORT_COLUMNS:out[c]=inteiro_coluna(out[c])
+ out["CPF"]=out["CPF"].map(cpf_formatado)
+ return out
 
 def summary_sector(df):
  if df.empty:return pd.DataFrame(columns=["SETOR","MEDICOS","VINCULOS","ESPECIALIDADES"])
@@ -149,9 +163,12 @@ def style(ws,df):
  fill=PatternFill("solid",fgColor="16324F");font=Font(bold=True,color="FFFFFF");side=Side(style="thin",color="CBD5E1")
  for i,c in enumerate(df.columns,1):
   cell=ws.cell(1,i);cell.fill=fill;cell.font=font;cell.alignment=Alignment(horizontal="center",wrap_text=True);cell.border=Border(left=side,right=side,top=side,bottom=side)
-  vals=[len(str(c))]+([int(df[c].astype(str).map(len).max())] if len(df) else []);ws.column_dimensions[get_column_letter(i)].width=min(max(max(vals)+2,12),50)
+  if c in NUMERIC_REPORT_COLUMNS:ws.column_dimensions[get_column_letter(i)].number_format="0"
+  vals=[len(str(c))]+([int(df[c].astype("string").str.len().fillna(0).max())] if len(df) else []);ws.column_dimensions[get_column_letter(i)].width=min(max(max(vals)+2,12),50)
  for row in ws.iter_rows(min_row=2,max_row=ws.max_row,max_col=len(df.columns)):
-  for cell in row:cell.border=Border(left=side,right=side,top=side,bottom=side);cell.alignment=Alignment(vertical="center")
+  for cell in row:
+   cell.border=Border(left=side,right=side,top=side,bottom=side);cell.alignment=Alignment(vertical="center")
+   if df.columns[cell.column-1] in NUMERIC_REPORT_COLUMNS:cell.number_format="0";cell.alignment=Alignment(horizontal="right",vertical="center")
  if len(df):ws.freeze_panes="A2";ws.auto_filter.ref=ws.dimensions;ws.print_title_rows="1:1";ws.print_area=f"A1:{get_column_letter(len(df.columns))}{ws.max_row}"
  ws.page_setup.orientation="landscape";ws.page_setup.paperSize=ws.PAPERSIZE_A4;ws.page_setup.fitToWidth=1;ws.page_setup.fitToHeight=0;ws.sheet_properties.pageSetUpPr.fitToPage=True
 

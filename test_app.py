@@ -52,3 +52,18 @@ def test_read_raw_falls_back_to_text_when_excel_extension_is_misleading():
 
     assert raw.shape == (2, 4)
     assert raw.iloc[1, 0] == "MEDICO"
+
+
+def test_report_formats_numeric_fields_and_cpf():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO", "ESCALA", "CPF"],
+        ["MÉDICO", "Cardio", "001234", "02", "Ana", "Cardiologia", "000350374", "5393676131"],
+    ])))
+
+    detail = app.report(df)
+
+    assert int(detail.loc[0, "NUMFUNC"]) == 1234
+    assert int(detail.loc[0, "NUMVINC"]) == 2
+    assert int(detail.loc[0, "ESCALA"]) == 350374
+    assert detail.loc[0, "CPF"] == "053.936.761-31"
+    assert str(detail["NUMFUNC"].dtype) == "Int64"
