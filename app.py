@@ -54,6 +54,13 @@ def key(v):
 
 def norm(v): return key(v).upper()
 
+def identificador(v):
+ s=text(v).replace(" ","")
+ # Excel pode entregar identificadores inteiros como texto decimal (ex.: 123.0).
+ if re.fullmatch(r"\d+[\.,]0+",s):s=re.split(r"[\.,]",s,1)[0]
+ digits=re.sub(r"\D","",s)
+ return digits.lstrip("0") or "0" if digits else ""
+
 def read_raw(data,name):
  if name.casefold().endswith(".csv"):
   for enc in ("utf-8-sig","utf-8","cp1252","latin1"):
@@ -105,7 +112,7 @@ def clean(df):
  for c in df.columns: df[c]=df[c].map(text)
  for c in ["NUMFUNC","NUMVINC"]:
   if c not in df:df[c]=""
-  df[c]=df[c].map(lambda v: re.sub(r"\D","",text(v)).lstrip("0") or "0" if re.sub(r"\D","",text(v)) else "")
+  df[c]=df[c].map(identificador)
  for c in REQUIRED:
   if c not in df:df[c]=""
  if "VINCULO" not in df:df["VINCULO"]=df.get("TIPO_VINCULO","")
@@ -159,7 +166,7 @@ def unique_servers_report(df):
  for c in columns:
   if c not in out:out[c]=""
  # A primeira ocorrência representa o servidor/vínculo; as demais escalas são removidas.
- out["_CHAVE_SERVIDOR"] = out["NUMFUNC"].map(text) + "|" + out["NUMVINC"].map(text)
+ out["_CHAVE_SERVIDOR"] = out["NUMFUNC"].map(identificador) + "|" + out["NUMVINC"].map(identificador)
  out=out.drop_duplicates("_CHAVE_SERVIDOR",keep="first").drop(columns="_CHAVE_SERVIDOR")[columns].reset_index(drop=True)
  out["ORDEM"]=range(1,len(out)+1)
  for c in {"ORDEM","NUMFUNC","NUMVINC"}:out[c]=inteiro_coluna(out[c])
@@ -242,7 +249,10 @@ def main():
  with tabs[1]:st.dataframe(reference.drop(columns=["TIPO_LINHA"]),use_container_width=True,hide_index=True)
  with tabs[2]:st.dataframe(specialty_summary,use_container_width=True,hide_index=True)
  if unique_enabled:
-  with tabs[3]:st.dataframe(unique_servers,use_container_width=True,hide_index=True)
+  with tabs[3]:
+   removed=max(len(filtered)-len(unique_servers),0)
+   st.success(f"{len(unique_servers)} servidores únicos. {removed} registro(s) repetido(s) removido(s) pela chave NUMFUNC + NUMVINC.")
+   st.dataframe(unique_servers,use_container_width=True,hide_index=True)
  st.markdown("---");st.subheader("Exportar relatórios")
  sheets={"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Resumo padrão PDF":reference}
  if unique_enabled:sheets["Servidores unicos"]=unique_servers

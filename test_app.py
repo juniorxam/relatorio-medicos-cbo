@@ -86,3 +86,13 @@ def test_unique_servers_report_deduplicates_by_numfunc_and_numvinc():
     assert unique[["NUMFUNC", "NUMVINC"]].astype(str).values.tolist() == [["10", "1"], ["10", "2"]]
     assert unique["ORDEM"].tolist() == [1, 2]
     assert list(unique.columns) == app.UNIQUE_SERVER_COLUMNS
+
+
+def test_unique_servers_treats_excel_decimal_ids_as_the_same_key():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia"],
+        ["MÉDICO", "Cardio", "10.0", "1.0", "Ana", "Cardiologia"],
+    ])))
+
+    assert len(app.unique_servers_report(df)) == 1
