@@ -219,9 +219,21 @@ def management_sector(df):
  return out.sort_values("SETOR")
 
 def management_specialty(df):
- base=management_base(df)
- if base.empty:return pd.DataFrame(columns=["OCUPACAO","MEDICOS","ESCALAS","HORAS_ESCALADAS"])
- return base.assign(OCUPACAO=base["OCUPACAO"].replace("","Não informada")).groupby("OCUPACAO",dropna=False).agg(MEDICOS=(KEY_COLUMN,"nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum")).reset_index().sort_values("MEDICOS",ascending=False)
+ columns=["OCUPACAO","MEDICOS","ESCALAS","HORAS_ESCALADAS","CARGA_HORARIA","SALDO_CARGA","COBERTURA_PCT"]
+ if df.empty:return pd.DataFrame(columns=columns)
+ work=df.copy()
+ for c in ["OCUPACAO","CARGA HORARIA ESCALADA","CARGA HORARIA"]:
+  if c not in work:work[c]=""
+ work[KEY_COLUMN]=chaves_vinculo(work)
+ work["OCUPACAO"]=work["OCUPACAO"].replace("","Não informada")
+ work["HORAS_ESCALADAS_NUM"]=pd.to_numeric(work["CARGA HORARIA ESCALADA"],errors="coerce").fillna(0)
+ work["CARGA_HORARIA_NUM"]=pd.to_numeric(work["CARGA HORARIA"],errors="coerce").fillna(0)
+ # Primeiro consolida cada vínculo dentro da especialidade para não duplicar a carga contratual.
+ links=work.groupby(["OCUPACAO",KEY_COLUMN],as_index=False).agg(ESCALAS=(KEY_COLUMN,"size"),HORAS_ESCALADAS=("HORAS_ESCALADAS_NUM","sum"),CARGA_HORARIA=("CARGA_HORARIA_NUM","max"))
+ out=links.groupby("OCUPACAO",as_index=False).agg(MEDICOS=(KEY_COLUMN,"nunique"),ESCALAS=("ESCALAS","sum"),HORAS_ESCALADAS=("HORAS_ESCALADAS","sum"),CARGA_HORARIA=("CARGA_HORARIA","sum"))
+ out["SALDO_CARGA"]=out["CARGA_HORARIA"]-out["HORAS_ESCALADAS"]
+ out["COBERTURA_PCT"]=out.apply(lambda r:round(r.HORAS_ESCALADAS/r.CARGA_HORARIA*100,1) if r.CARGA_HORARIA else 0,axis=1)
+ return out[columns].sort_values("HORAS_ESCALADAS",ascending=False)
 
 def management_vinculo(df):
  base=management_base(df)
@@ -301,7 +313,7 @@ def main():
  missing_key=((filtered["NUMFUNC"].map(identificador)=="")|(filtered["NUMVINC"].map(identificador)=="")).sum()
  k1,k2,k3,k4=st.columns(4);k1.metric("Médicos únicos",unique_count);k2.metric("Escalas/registros",total_scales);k3.metric("Setores",filtered["SETOR"].nunique());k4.metric("Horas escaladas",f"{total_hours:,.0f}".replace(",","."))
  if missing_key:st.warning(f"{missing_key} registro(s) não possuem NUMFUNC ou NUMVINC. Eles não são agrupados entre si, pois não é possível confirmar que representam o mesmo vínculo.")
- tab_names=["Painel gerencial","Capacidade e carga","Qualidade dos dados","Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"]
+ tab_names=["Painel gerencial","Capacidade e carga","Horas por especialidade","Qualidade dos dados","Relação de médicos","Resumo no padrão do PDF","Especialidades por setor"]
  if unique_enabled:tab_names.append("Servidores sem repetição")
  tabs=st.tabs(tab_names)
  with tabs[0]:
@@ -320,21 +332,26 @@ def main():
   st.dataframe(sector_management,use_container_width=True,hide_index=True)
   if len(sector_management):st.bar_chart(sector_management.set_index("SETOR")[["HORAS_ESCALADAS","CARGA_HORARIA"]])
  with tabs[2]:
+  st.subheader("Horas escaladas por especialidade")
+  st.caption("As horas escaladas são somadas por registro; a carga contratual é consolidada uma vez por vínculo dentro de cada especialidade.")
+  st.dataframe(specialty_management,use_container_width=True,hide_index=True)
+  if len(specialty_management):st.bar_chart(specialty_management.set_index("OCUPACAO")[["HORAS_ESCALADAS","CARGA_HORARIA"]])
+ with tabs[3]:
   st.subheader("Qualidade cadastral")
   st.dataframe(quality,use_container_width=True,hide_index=True)
   st.caption("Use estes alertas para priorizar correções no cadastro da Intranet.")
- with tabs[3]:
+ with tabs[4]:
   if detail.empty:st.warning("Nenhum médico encontrado com os três cargos definidos.")
   else:st.dataframe(detail,use_container_width=True,hide_index=True,height=520)
- with tabs[4]:st.dataframe(reference.drop(columns=["TIPO_LINHA"]),use_container_width=True,hide_index=True)
- with tabs[5]:st.dataframe(specialty_summary,use_container_width=True,hide_index=True)
+ with tabs[5]:st.dataframe(reference.drop(columns=["TIPO_LINHA"]),use_container_width=True,hide_index=True)
+ with tabs[6]:st.dataframe(specialty_summary,use_container_width=True,hide_index=True)
  if unique_enabled:
-  with tabs[6]:
+  with tabs[7]:
    removed=max(len(filtered)-len(unique_servers),0)
    st.success(f"{len(unique_servers)} servidores únicos. {removed} registro(s) repetido(s) removido(s) pela chave NUMFUNC + NUMVINC.")
    st.dataframe(unique_servers,use_container_width=True,hide_index=True)
  st.markdown("---");st.subheader("Exportar relatórios")
- sheets={"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Resumo padrão PDF":reference}
+ sheets={"Medicos":detail,"Resumo setores":sector_summary,"Especialidades":specialty_summary,"Horas especialidade":specialty_management,"Resumo padrão PDF":reference}
  if unique_enabled:sheets["Servidores unicos"]=unique_servers
  xlsx=excel(sheets);p=pdf(reference)
  a,b=st.columns(2)

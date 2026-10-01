@@ -21,6 +21,7 @@ A especialidade é obtida de `OCUPACAO`; quando vazia, aparece como `Não inform
 - Painel gerencial com filtros por setor, vínculo e especialidade.
 - Indicadores de médicos únicos, escalas/registros, setores e horas escaladas. A chave oficial para médico/vínculo é a coluna `NUMFUNC-NUMVINC`; identificadores incompletos recebem uma chave técnica distinta por linha para não agrupar registros sem confirmação.
 - Análise de capacidade por setor, com horas escaladas, carga contratual, saldo e percentual de cobertura.
+- Relatório de horas escaladas por especialidade, com médicos, escalas, carga contratual, saldo e percentual de cobertura, disponível na tela e no Excel.
 - Distribuição por especialidade e tipo de vínculo, além de identificação de setores com maior concentração.
 - Alertas de qualidade para CPF, setor, especialidade, carga horária e vínculos não classificados.
 - Resumo por setor com médicos, vínculos e especialidades.

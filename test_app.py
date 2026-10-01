@@ -118,6 +118,24 @@ def test_management_analysis_counts_unique_links_scales_and_hours():
     assert sector.CARGA_HORARIA.iloc[0] == 48
 
 
+def test_management_specialty_reports_scaled_hours_and_contractual_load():
+    df = app.clean(app.parse(pd.DataFrame([
+        ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "OCUPACAO", "CARGA HORARIA ESCALADA", "CARGA HORARIA"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "12", "24"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Cardiologia", "8", "24"],
+        ["MÉDICO", "Cardio", "10", "1", "Ana", "Clínica médica", "4", "24"],
+        ["MÉDICO", "Cardio", "11", "1", "Bia", "Cardiologia", "24", "24"],
+    ])))
+
+    specialty = app.management_specialty(df).set_index("OCUPACAO")
+
+    assert specialty.loc["Cardiologia", "MEDICOS"] == 2
+    assert specialty.loc["Cardiologia", "ESCALAS"] == 3
+    assert specialty.loc["Cardiologia", "HORAS_ESCALADAS"] == 44
+    assert specialty.loc["Cardiologia", "CARGA_HORARIA"] == 48
+    assert specialty.loc["Clínica médica", "HORAS_ESCALADAS"] == 4
+
+
 def test_unique_doctors_count_does_not_count_multiple_links_twice():
     df = app.clean(app.parse(pd.DataFrame([
         ["CARGO", "SETOR", "NUMFUNC", "NUMVINC", "SERVIDOR", "CPF", "OCUPACAO"],
